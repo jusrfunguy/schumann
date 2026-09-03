@@ -1,0 +1,35 @@
+name: Schumann + Crime Radar Relay
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch Schumann resonance image
+        run: |
+          mkdir -p data
+          curl -sL -A 'Mozilla/5.0' 'https://sos70.ru/provider.php?file=shm.jpg' -o data/schumann_latest.jpg
+
+      - name: Fetch crime radar pages
+        run: |
+          mkdir -p data/crimeradar
+          for city in missoula-mt billings-mt great-falls-mt bozeman-mt helena-mt butte-mt kalispell-mt; do
+            curl -sL -A 'Mozilla/5.0' "https://uscrimeradar.com/$city" -o "data/crimeradar/$city.html" || echo "failed: $city"
+          done
+
+      - name: Commit and push
+        run: |
+          git config user.name "relay-bot"
+          git config user.email "relay-bot@users.noreply.github.com"
+          git add data/
+          git diff --quiet --cached || git commit -m "relay update $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push
